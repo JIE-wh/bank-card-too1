@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>银行卡信息登记</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Microsoft YaHei","PingFang SC",sans-serif;background:linear-gradient(135deg,#e8f0fe,#f0f2f5);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px}
+.card{background:#fff;border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,.1);width:100%;max-width:440px;padding:28px 24px}
+h1{font-size:22px;color:#1a73e8;text-align:center;margin-bottom:2px}
+.sub{text-align:center;color:#888;font-size:13px;margin-bottom:20px}
+.fi{margin-bottom:16px}
+.fi label{display:block;font-weight:600;color:#444;margin-bottom:8px;font-size:15px}
+.fi input{width:100%;padding:12px 14px;border:2px solid #ddd;border-radius:10px;font-size:17px;transition:border-color .2s;outline:none;font-family:inherit}
+.fi input:focus{border-color:#1a73e8}
+.fi .hint{color:#e65100;font-size:12px;margin-top:5px}
+
+/* 照片区域 */
+.photo-area{margin-bottom:16px}
+.photo-area label{display:block;font-weight:600;color:#444;margin-bottom:8px;font-size:15px}
+.photo-box{position:relative;border:2px dashed #ccc;border-radius:12px;min-height:120px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;transition:all .3s;background:#fafafa}
+.photo-box:hover{border-color:#1a73e8;background:#f5f8ff}
+.photo-box img{max-width:100%;max-height:200px;display:none}
+.photo-box .placeholder{text-align:center;color:#999}
+.photo-box .placeholder .icon{font-size:36px;display:block;margin-bottom:6px}
+.photo-box.has-photo .placeholder{display:none}
+.photo-box.has-photo img{display:block}
+.photo-box.has-photo{border-color:#34a853;border-style:solid}
+
+.photo-btns{display:flex;gap:10px;margin-top:10px}
+.photo-btns button{flex:1;padding:10px;border:2px solid #1a73e8;border-radius:10px;font-size:14px;cursor:pointer;background:#fff;color:#1a73e8;font-family:inherit;transition:all .2s}
+.photo-btns button:hover{background:#e8f0fe}
+.photo-btns button.del{color:#ea4335;border-color:#ea4335}
+.photo-btns button.del:hover{background:#fce8e6}
+
+.btn{width:100%;padding:14px;border:none;border-radius:10px;font-size:17px;font-weight:600;cursor:pointer;background:#1a73e8;color:#fff;transition:background .2s;margin-top:8px}
+.btn:hover{background:#1557b0}
+.btn:disabled{background:#ccc;cursor:not-allowed}
+
+.msg{margin-top:14px;text-align:center;font-size:14px;padding:10px;border-radius:8px;display:none}
+.msg.ok{display:block;background:#e8f5e9;color:#2e7d32}
+.msg.err{display:block;background:#fce8e6;color:#c62828}
+.msg.loading{display:block;background:#e3f2fd;color:#1565c0}
+
+.note{margin-top:18px;padding:12px;background:#f8f9fa;border-radius:8px;font-size:12px;color:#888;line-height:1.8}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>💳 银行卡信息登记</h1>
+  <p class="sub">请填写姓名、卡号，并拍摄银行卡照片</p>
+
+  <div class="fi">
+    <label>持卡人姓名</label>
+    <input type="text" id="nm" placeholder="请输入您的姓名" autocomplete="off">
+  </div>
+
+  <div class="fi">
+    <label>银行卡号</label>
+    <input type="text" id="cn" placeholder="请输入银行卡号" inputmode="numeric" maxlength="23">
+    <div class="hint">卡号共 16~19 位数字</div>
+  </div>
+
+  <div class="photo-area">
+    <label>银行卡照片（可选）</label>
+    <div class="photo-box" id="photoBox" onclick="document.getElementById('fileInput').click()">
+      <img id="previewImg" alt="照片预览">
+      <div class="placeholder" id="placeholder">
+        <span class="icon">📸</span>
+        <span>点击上传银行卡照片</span>
+        <span style="font-size:11px;color:#aaa">或下方按钮拍照</span>
+      </div>
+    </div>
+    <div class="photo-btns">
+      <button type="button" onclick="openCamera()">📷 拍照</button>
+      <button type="button" onclick="document.getElementById('fileInput').click()">📁 选照片</button>
+      <button type="button" class="del" onclick="clearPhoto()" id="delBtn" style="display:none">✕ 删除</button>
+    </div>
+  </div>
+
+  <input type="file" id="fileInput" accept="image/*" style="display:none" onchange="handleFile(this)">
+  <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none" onchange="handleFile(this)">
+
+  <button class="btn" id="submitBtn" onclick="submit()">提　交</button>
+  <div class="msg" id="msg"></div>
+
+  <div class="note">
+    🔒 您的信息仅用于本次登记，不会泄露给第三方。<br>
+    📸 请确保银行卡照片清晰可见卡号。<br>
+    如有疑问请联系管理员。
+  </div>
+</div>
+
+<script>
+var photoBase64 = '';
+
+function openCamera(){
+  document.getElementById('cameraInput').click();
+}
+
+function handleFile(input){
+  var file = input.files[0];
+  if(!file) return;
+  if(file.size > 3*1024*1024){
+    showMsg('照片太大，请选择 3MB 以内的图片', 'err');
+    input.value = '';
+    return;
+  }
+  var reader = new FileReader();
+  reader.onload = function(e){
+    var img = document.getElementById('previewImg');
+    img.src = e.target.result;
+    document.getElementById('photoBox').classList.add('has-photo');
+    document.getElementById('delBtn').style.display = '';
+    // 提取 base64（去掉 data:image/...;base64, 前缀）
+    photoBase64 = e.target.result.split(',')[1] || e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearPhoto(){
+  document.getElementById('previewImg').src = '';
+  document.getElementById('photoBox').classList.remove('has-photo');
+  document.getElementById('delBtn').style.display = 'none';
+  photoBase64 = '';
+  document.getElementById('fileInput').value = '';
+  document.getElementById('cameraInput').value = '';
+}
+
+function showMsg(t,c){
+  var e = document.getElementById('msg');
+  e.className = 'msg ' + c;
+  e.textContent = t;
+}
+
+function submit(){
+  var nm = document.getElementById('nm').value.trim();
+  var cn = document.getElementById('cn').value.replace(/\s/g,'');
+  if(!nm){showMsg('请输入姓名','err');return}
+  if(!cn){showMsg('请输入银行卡号','err');return}
+  if(cn.length < 16 || cn.length > 19){showMsg('卡号位数不正确（'+cn.length+'位）','err');return}
+
+  var btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.textContent = '提交中...';
+
+  var fd = new FormData();
+  fd.append('name', nm);
+  fd.append('card', cn);
+
+  // 如果有照片，把 base64 作为字段提交
+  if(photoBase64){
+    fd.append('photo_base64', photoBase64);
+  }
+
+  fetch('/submit', {method:'POST', body:fd})
+    .then(function(r){return r.json()})
+    .then(function(d){
+      if(d.ok){
+        showMsg('提交成功！感谢您的登记。', 'ok');
+        document.getElementById('nm').value = '';
+        document.getElementById('cn').value = '';
+        clearPhoto();
+        document.getElementById('nm').focus();
+      } else {
+        showMsg(d.msg, 'err');
+      }
+    })
+    .catch(function(){showMsg('网络错误，请重试','err')})
+    .finally(function(){
+      btn.disabled = false;
+      btn.textContent = '提　交';
+    });
+}
+
+// 卡号自动加空格
+document.getElementById('cn').addEventListener('input', function(){
+  var v = this.value.replace(/\s/g,'').replace(/\D/g,'');
+  v = v.substring(0, 19);
+  var r = [];
+  for(var i = 0; i < v.length; i += 4) r.push(v.substring(i, i+4));
+  this.value = r.join(' ');
+});
+</script>
+</body>
+</html>

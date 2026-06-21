@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>管理后台 - 银行卡信息汇总</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Microsoft YaHei","微软雅黑",sans-serif;background:#f0f2f5;color:#333;min-height:100vh}
+.header{background:linear-gradient(135deg,#1a73e8,#0d47a1);color:#fff;padding:14px 20px}
+.header h1{font-size:18px;margin-bottom:4px}
+.header .info{font-size:12px;opacity:.85}
+.card{background:#fff;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.08);margin:16px;padding:20px}
+.card h2{font-size:16px;color:#1a73e8;margin-bottom:14px;padding-left:10px;border-left:4px solid #1a73e8}
+.btn{cursor:pointer;border:none;border-radius:8px;padding:8px 16px;font-size:14px;font-family:inherit;transition:all .15s}
+.bp{background:#1a73e8;color:#fff}.bp:hover{background:#1557b0}
+.bs{background:#34a853;color:#fff}.bs:hover{background:#2d8e47}
+.bd{background:#ea4335;color:#fff}.bd:hover{background:#c5221f}
+.bo{background:#f5f5f5;color:#1a73e8;border:2px solid #1a73e8}.bo:hover{background:#e8f0fe}
+.bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{background:#f8f9fa;color:#555;font-weight:600;padding:10px 12px;text-align:left;border-bottom:2px solid #e0e0e0;white-space:nowrap}
+td{padding:10px 12px;border-bottom:1px solid #eee;vertical-align:middle}
+tr:hover{background:#f8f9fa}
+.eh{text-align:center;color:#aaa;padding:30px}
+.bcf{font-family:"Courier New",monospace;letter-spacing:1px}
+.photo-thumb{width:80px;height:50px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid #eee;transition:transform .2s}
+.photo-thumb:hover{transform:scale(1.1)}
+.no-photo{color:#ccc;font-size:12px;text-align:center}
+.qrbox{text-align:center;margin:14px 0}
+.qrbox canvas{border:1px solid #ddd;border-radius:8px;background:#fff;padding:8px;max-width:220px}
+.urlbox{background:#f8f9fa;padding:10px 14px;border-radius:8px;font-size:13px;word-break:break-all;margin:10px 0;color:#555;display:flex;align-items:center;gap:10px}
+.urlbox b{flex-shrink:0}
+.copy-btn{flex-shrink:0;padding:4px 12px;border:1px solid #1a73e8;border-radius:6px;background:#fff;color:#1a73e8;cursor:pointer;font-size:12px;font-family:inherit}
+.copy-btn:hover{background:#e8f0fe}
+.toast{position:fixed;top:20px;right:20px;padding:12px 20px;border-radius:8px;font-size:14px;z-index:9999;animation:slideIn .3s ease;box-shadow:0 4px 12px rgba(0,0,0,.15)}
+.ts{background:#e8f5e9;color:#2e7d32;border-left:4px solid #34a853}
+.te{background:#fce8e6;color:#c5221f;border-left:4px solid #ea4335}
+@keyframes slideIn{from{transform:translateX(100px);opacity:0}to{transform:translateX(0);opacity:1}}
+.tab{display:flex;border-bottom:2px solid #e0e0e0;margin-bottom:16px}
+.tab button{flex:1;padding:10px;background:none;border:none;font-size:14px;cursor:pointer;color:#888;border-bottom:3px solid transparent;font-family:inherit}
+.tab button.on{color:#1a73e8;border-bottom-color:#1a73e8;font-weight:600}
+.section{display:none}.section.on{display:block}
+.upload-area{border:2px dashed #c8e6c9;border-radius:12px;padding:24px;text-align:center;cursor:pointer;transition:all .3s;margin-top:10px;background:#fafffe}
+.upload-area:hover{background:#f1f8e9}
+
+/* 大图弹窗 */
+.modal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.85);z-index:9999;align-items:center;justify-content:center}
+.modal.show{display:flex}
+.modal img{max-width:90%;max-height:90%;border-radius:12px}
+.modal .close{position:absolute;top:20px;right:20px;color:#fff;font-size:32px;cursor:pointer;width:48px;height:48px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.15);border-radius:50%}
+.modal .close:hover{background:rgba(255,255,255,.3)}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>💳 银行卡信息采集 · 管理后台</h1>
+  <div class="info" id="urlInfo"></div>
+</div>
+
+<!-- Tab 切换 -->
+<div class="card" style="padding-bottom:0">
+  <div class="tab">
+    <button class="on" onclick="switchTab('online')">🌐 在线采集</button>
+    <button onclick="switchTab('manual')">✏️ 手动录入</button>
+    <button onclick="switchTab('offline')">📷 离线扫码</button>
+  </div>
+</div>
+
+<!-- 在线采集 -->
+<div class="section on" id="tab-online">
+<div class="card">
+  <h2>📱 分享填写链接</h2>
+  <div class="qrbox" id="qrBox"><p style="color:#aaa">正在生成二维码...</p></div>
+  <div class="urlbox">
+    <b>填写链接：</b>
+    <span id="formUrl" style="flex:1">加载中...</span>
+    <button class="copy-btn" onclick="copyUrl()">📋 复制</button>
+  </div>
+  <p style="font-size:13px;color:#888;margin-top:12px">将此链接或二维码发给需要填写的人，他们提交后数据自动汇总到下方。</p>
+</div>
+
+<div class="card">
+  <h2>📋 已收到提交（<span id="cnt">0</span> 条）</h2>
+  <div class="bar">
+    <button class="btn bs" onclick="doExport()">📄 导出 Word 文档</button>
+    <button class="btn bd" onclick="doClear()">🗑️ 清空全部</button>
+    <button class="btn bo" onclick="loadData()">🔄 刷新</button>
+    <span style="margin-left:auto;font-size:13px;color:#888">自动刷新每 15 秒</span>
+  </div>
+  <div class="tw">
+    <table>
+      <thead><tr><th style="width:40px">#</th><th>姓名</th><th>银行卡号</th><th style="width:100px">照片</th><th>提交时间</th><th style="width:60px">操作</th></tr></thead>
+      <tbody id="tb"></tbody>
+    </table>
+  </div>
+</div>
+</div>
+
+<!-- 手动录入 -->
+<div class="section" id="tab-manual">
+<div class="card">
+  <h2>✏️ 手动录入</h2>
+  <div style="display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap">
+    <input id="manName" placeholder="姓名" style="flex:1;min-width:100px;padding:10px 12px;border:2px solid #e0e0e0;border-radius:10px;font-size:14px;outline:none;font-family:inherit">
+    <input id="manCard" placeholder="银行卡号" style="flex:1.5;min-width:160px;padding:10px 12px;border:2px solid #e0e0e0;border-radius:10px;font-size:14px;outline:none;font-family:inherit" oninput="this.value=this.value.replace(/\s/g,'').replace(/(\d{4})(?=\d)/g,'$1 ').trim()">
+  </div>
+  <button class="btn bp" onclick="manualAdd()" style="width:100%">➕ 添加记录</button>
+</div>
+</div>
+
+<!-- 离线扫码 -->
+<div class="section" id="tab-offline">
+<div class="card">
+  <h2>📷 扫描数据二维码录入</h2>
+  <p style="font-size:13px;color:#888;margin-bottom:12px">对方离线填完表会显示数据二维码，上传此码即可录入</p>
+  <input type="file" id="qrInput" accept="image/*" style="display:none" onchange="decodeQR(this)">
+  <div class="upload-area" onclick="document.getElementById('qrInput').click()">
+    <div style="font-size:36px;margin-bottom:8px">📷</div>
+    <p><b>点击上传二维码图片</b></p>
+    <p style="margin-top:4px;color:#aaa;font-size:12px">支持粘贴截图（Ctrl+V）</p>
+  </div>
+  <p id="scanStatus" style="font-size:13px;margin-top:10px;color:#1a73e8;display:none">扫描中...</p>
+</div>
+</div>
+
+<!-- 大图弹窗 -->
+<div class="modal" id="photoModal" onclick="this.classList.remove('show')">
+  <span class="close">&times;</span>
+  <img id="modalImg" src="" alt="银行卡照片">
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+<script>
+var data = [];
+
+function switchTab(name){
+  document.querySelectorAll('.tab button').forEach(function(b){b.classList.remove('on')});
+  document.querySelectorAll('.section').forEach(function(s){s.classList.remove('on')});
+  event.target.classList.add('on');
+  document.getElementById('tab-'+name).classList.add('on');
+}
+
+function showUrl(){
+  var port = location.port || (location.protocol==='https:'?'443':'80');
+  var base = location.protocol + '//' + location.hostname;
+  if(port !== '443' && port !== '80') base += ':' + port;
+  var url = base + '/';
+  document.getElementById('formUrl').textContent = url;
+  document.getElementById('urlInfo').textContent = '服务地址：' + url;
+
+  var qrBox = document.getElementById('qrBox');
+  qrBox.innerHTML = '';
+  if(typeof QRCode !== 'undefined'){
+    new QRCode(qrBox, {text:url, width:200, height:200, colorDark:'#000', colorLight:'#fff', correctLevel:QRCode.CorrectLevel.M});
+  }
+}
+showUrl();
+
+function copyUrl(){
+  var url = document.getElementById('formUrl').textContent;
+  if(navigator.clipboard){
+    navigator.clipboard.writeText(url).then(function(){toast('链接已复制到剪贴板','s')});
+  } else {
+    // Fallback
+    var ta = document.createElement('textarea');
+    ta.value = url; document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy');
+    document.body.removeChild(ta);
+    toast('链接已复制','s');
+  }
+}
+
+function loadData(){
+  fetch('/api/data').then(function(r){return r.json()}).then(function(d){
+    data = d;
+    var tb = document.getElementById('tb');
+    if(d.length===0){
+      tb.innerHTML = '<tr><td colspan="6" class="eh">暂无提交数据</td></tr>';
+    }else{
+      var html = '';
+      for(var i=0;i<d.length;i++){
+        var r=d[i], fc=r.card, p=[];
+        for(var j=0;j<fc.length;j+=4)p.push(fc.substring(j,j+4));
+        fc=p.join(' ');
+
+        var photoHtml = r.hasPhoto
+          ? '<img src="/api/photo/'+r.id+'" class="photo-thumb" onclick="event.stopPropagation();showPhoto('+r.id+')" title="点击查看大图">'
+          : '<span class="no-photo">无</span>';
+
+        html+='<tr>';
+        html+='<td>'+(i+1)+'</td>';
+        html+='<td>'+esc(r.name)+'</td>';
+        html+='<td class="bcf">'+esc(fc)+'</td>';
+        html+='<td style="text-align:center">'+photoHtml+'</td>';
+        html+='<td style="font-size:12px;color:#888">'+(r.time||'')+'</td>';
+        html+='<td><button class="btn bd" style="padding:2px 8px;font-size:12px" onclick="del('+r.id+')">删除</button></td>';
+        html+='</tr>';
+      }
+      tb.innerHTML = html;
+    }
+    document.getElementById('cnt').textContent = d.length;
+  });
+}
+
+function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+function showPhoto(id){
+  var modal = document.getElementById('photoModal');
+  var img = document.getElementById('modalImg');
+  img.src = '/api/photo/' + id;
+  modal.classList.add('show');
+}
+
+function del(id){
+  if(!confirm('确定删除这条记录？'))return;
+  fetch('/api/delete/'+id, {method:'POST'}).then(function(){
+    toast('已删除','s'); loadData();
+  });
+}
+
+function doClear(){
+  if(data.length===0){toast('暂无数据','e');return}
+  if(!confirm('确定清空所有记录？此操作不可恢复！'))return;
+  fetch('/api/clear', {method:'POST'}).then(function(){
+    toast('已全部清空','s'); loadData();
+  });
+}
+
+function doExport(){
+  if(data.length===0){toast('暂无数据可导出','e');return}
+  window.open('/export', '_blank');
+}
+
+function manualAdd(){
+  var nm = document.getElementById('manName').value.trim();
+  var cd = document.getElementById('manCard').value.replace(/\s/g,'');
+  if(!nm||!cd){toast('请输入姓名和卡号','e');return}
+  if(cd.length<16||cd.length>19){toast('卡号位数不正确（'+cd.length+'位）','e');return}
+  fetch('/api/manual', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name:nm, card:cd})})
+    .then(function(r){return r.json()})
+    .then(function(d){
+      if(d.ok){toast('添加成功！','s'); document.getElementById('manName').value=''; document.getElementById('manCard').value=''; loadData();}
+      else{toast(d.msg,'e')}
+    });
+}
+
+function decodeQR(input){
+  var file = input.files[0];
+  if(!file)return;
+  var st = document.getElementById('scanStatus');
+  st.style.display='block'; st.textContent='正在识别二维码...';
+
+  var img = new Image();
+  var canvas = document.createElement('canvas');
+  var ctx = canvas.getContext('2d');
+  img.onload = function(){
+    canvas.width=img.width; canvas.height=img.height;
+    ctx.drawImage(img,0,0);
+    var imgData = ctx.getImageData(0,0,canvas.width,canvas.height);
+    if(typeof jsQR !== 'undefined'){
+      var code = jsQR(imgData.data, imgData.width, imgData.height);
+      if(code){
+        try{
+          var d = JSON.parse(code.data);
+          if(d.n&&d.c){
+            fetch('/api/manual', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name:d.n, card:d.c})})
+              .then(function(){toast('扫码录入成功！','s'); loadData();});
+          }
+        }catch(e){toast('二维码格式不正确','e');}
+      }else{toast('未识别到二维码','e');}
+    }
+    st.style.display='none';
+    document.getElementById('qrInput').value='';
+  };
+  img.src = URL.createObjectURL(file);
+}
+
+document.addEventListener('paste', function(e){
+  var file = e.clipboardData && e.clipboardData.files[0];
+  if(file && file.type.startsWith('image/')){
+    var input = document.getElementById('qrInput');
+    var dt = new DataTransfer(); dt.items.add(file); input.files = dt.files;
+    decodeQR(input);
+  }
+});
+
+function toast(msg, t){
+  var e = document.getElementById('toast');
+  e.textContent = msg;
+  e.className = 'toast ' + (t==='s'?'ts':'te');
+  setTimeout(function(){e.className='toast'}, 2500);
+}
+
+// 刷新
+loadData();
+setInterval(loadData, 15000);
+</script>
+</body>
+</html>
