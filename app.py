@@ -53,6 +53,7 @@ def submit():
         return jsonify({'ok': False, 'msg': '卡号位数不正确'})
 
     photo = ''
+    # 方式1：文件上传
     if 'photo' in request.files:
         file = request.files['photo']
         if file and file.filename:
@@ -60,6 +61,12 @@ def submit():
             if len(data) > 3 * 1024 * 1024:
                 return jsonify({'ok': False, 'msg': '照片太大，请压缩到 3MB 以内'})
             photo = base64.b64encode(data).decode('utf-8')
+    # 方式2：base64 字符串（手机端拍照）
+    elif request.form.get('photo_base64'):
+        b64 = request.form.get('photo_base64')
+        if len(b64) > 4 * 1024 * 1024:
+            return jsonify({'ok': False, 'msg': '照片太大，请压缩到 3MB 以内'})
+        photo = b64
 
     conn = get_conn()
     conn.execute(
